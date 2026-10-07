@@ -214,9 +214,19 @@ class GeneralPikoBrain:
         self._learn_text_internal(text)
         self.save_memory()
 
+    def _normalize_key(self, text):
+        """Normalisasi teks untuk key dictionary: lowercase, hapus spasi berlebih & tanda baca"""
+        import re
+
+        text = text.lower().strip()
+        text = re.sub(r"[.,?!\'\";:]", "", text)  # Hapus tanda baca
+        text = re.sub(r"\s+", " ", text)  # Hapus spasi berlebih
+        return text
+
     def _add_to_conversation_log(self, question, answer):
         """Helper untuk menambahkan jawaban ke dalam list (mendukung variasi)"""
-        key = question.lower().strip()
+
+        key = self._normalize_key(question)
         if key not in self.conversation_log:
             self.conversation_log[key] = []
 
@@ -234,7 +244,7 @@ class GeneralPikoBrain:
         self._learn_text_internal(question)
         self._learn_text_internal(answer)
         self.save_memory()
-        print(f"💡 Piko belajar variasi jawaban untuk '{question}'")
+        print(f"Piko belajar variasi jawaban untuk '{question}'")
 
     # ------------------------------------------------------------------
     # STORYTELLING & GENERATION
@@ -402,6 +412,13 @@ class GeneralPikoBrain:
 
     def baby_respond(self, prompt):
         """Logika utama respon ala bayi: Tanya jika tidak tahu, Jawab jika tahu"""
+        normalized_prompt = self._normalize_key(prompt)
+        if normalized_prompt in self.conversation_log:
+            answers = self.conversation_log[normalized_prompt]
+            if isinstance(answers, list):
+                return random.choice(answers)
+            return answers
+
         known, unknown, subject = self.analyze_input(prompt)
 
         # Selalu simpan kalimat utuh ke memori
@@ -472,6 +489,13 @@ class GeneralPikoBrain:
 
     def reason_and_respond_fully_understood(self, prompt, subject):
         """Logika penalaran jika semua kata sudah dipahami"""
+        normalized_prompt = self._normalize_key(prompt)
+        if normalized_prompt in self.conversation_log:
+            answers = self.conversation_log[normalized_prompt]
+            if isinstance(answers, list):
+                return random.choice(answers)
+            return answers
+
         lower_prompt = prompt.lower().strip()
 
         # Cek conversation_log (Support Variasi Jawaban)
