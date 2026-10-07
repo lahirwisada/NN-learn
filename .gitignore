@@ -1,0 +1,125 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Data files (sesuai dengan ketertarikan Anda pada data.py)
+data/*.pkl
+data/*.npy
+data/*.npz
+data/training_data.pkl
+data/model_weights.pkl
+
+# Model checkpoints dan weights
+models/
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.pb
+saved_models/
+
+# Training artifacts
+logs/
+runs/
+tensorboard/
+*.log
+training_history.pkl
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+*.env
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+
+# Pytest
+.pytest_cache/
+
+# AI-specific ignores
+# Cache dari training iterations
+cache/
+intermediate_results/
+
+# Generated vocabulary atau dictionary files
+vocab.txt
+dictionary.pkl
+word_embeddings.npy
+
+# Backup files dari development
+*.bak
+backup/
+
+# Results dan outputs
+results/
+outputs/
+predictions/
+
+# Large binary files yang tidak perlu di-version control
+*.bin
+*.model
+
+# Debug files
+debug.log
+*.dump
+
+# Knowledge base files (semua file dengan prefix knowledge_base di folder manapun)
+**/knowledge_base*
+knowledge_base*
+**/knowledge_base_*
+**/knowledge_base-*
+knowledge_base_*
+knowledge_base-*
