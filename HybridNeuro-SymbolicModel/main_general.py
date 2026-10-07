@@ -1,6 +1,22 @@
 from brain_general import GeneralPikoBrain
 
 
+def print_help():
+    """Menampilkan daftar perintah khusus"""
+    print("\n--- 📜 DAFTAR PERINTAH KHUSUS ---")
+    print(" 1. exit                  : Keluar dari program.")
+    print(
+        " 2. ajar: [Q] -> [A]     : Ajarkan respon spesifik (Contoh: ajar: halo -> hai juga)."
+    )
+    print(" 3. p-bad                 : Beri penalti pada respon terakhir Piko.")
+    print(" 4. l-kb -> [path.json]   : Load knowledge base masif dari file JSON.")
+    print(
+        " 5. reload-dasar          : Muat ulang pengetahuan dasar dari initial_knowledge.py."
+    )
+    print(" 6. show-help             : Tampilkan bantuan ini lagi.")
+    print("----------------------------------\n")
+
+
 def main():
     brain = GeneralPikoBrain()
 
@@ -11,10 +27,7 @@ def main():
 
     print("👋 Halo! Saya Piko General. Ketik 'exit' untuk berhenti.")
     print("Tips: Jika saya salah jawab, ketik 'ajar: [pertanyaan] -> [jawaban]'")
-    print("Perintah Khusus:")
-    print("  - ajar: [pertanyaan] -> [jawaban]  (Ajarkan respon spesifik)")
-    print("  - p-bad                              (Beri penalti respon terakhir)")
-    print("  - l-kb -> [path_file.json]           (Load knowledge base masif)")
+    print("Ketik 'show-help' untuk melihat daftar perintah lengkap.")
 
     last_input = ""  # Variabel untuk menyimpan input terakhir user
 
@@ -22,6 +35,10 @@ def main():
         user_input = input("\nKamu: ")
         if user_input.lower() == "exit":
             break
+
+        if user_input.strip().lower() == "show-help":
+            print_help()
+            continue
 
         if user_input.strip().lower().startswith("l-kb"):
             try:
@@ -57,6 +74,10 @@ def main():
             else:
                 print("⚠️ Tidak ada input sebelumnya untuk diberi penalti.")
             continue  # Lewati proses normal
+
+        if user_input.strip().lower() == "reload-dasar":
+            brain.reload_initial_knowledge()
+            continue
 
         last_input = user_input
 
