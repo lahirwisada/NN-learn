@@ -124,6 +124,49 @@ class GeneralPikoBrain:
         else:
             print("🆕 Memori baru dibuat.")
 
+    def load_semantic_datasheet(self, filepath):
+        """Memuat datasheet semantik untuk memperkaya definisi dan properti kata"""
+        if not os.path.exists(filepath):
+            print(f"❌ File datasheet {filepath} tidak ditemukan.")
+            return
+
+        print(f"📖 Memuat datasheet semantik dari: {filepath}...")
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            count_loaded = 0
+            for item in data:
+                word = item.get("word", "").lower().strip()
+                category = item.get("category", "unknown")
+                properties = item.get("properties", [])
+                related = item.get("related", [])
+
+                if word:
+                    # 1. Tambahkan/Update Neuron dengan Kategori Baru
+                    self.add_word(word, category)
+
+                    # 2. Tambahkan Properti sebagai koneksi khusus (prefix 'prop:')
+                    for prop in properties:
+                        prop_key = f"prop:{prop}"
+                        self.connect(
+                            word, prop_key, strength=2.0
+                        )  # Kekuatan tinggi untuk properti
+
+                    # 3. Tambahkan Related Words sebagai koneksi standar
+                    for rel in related:
+                        self.connect(word, rel, strength=1.5)
+
+                    count_loaded += 1
+
+            self.save_memory()
+            print(
+                f"✅ Selesai memuat {count_loaded} entri semantik dengan properti dan relasi."
+            )
+
+        except Exception as e:
+            print(f"❌ Gagal memproses datasheet: {e}")
+
     def save_memory(self):
         data = {
             "neurons": self.neurons,
@@ -640,66 +683,64 @@ class GeneralPikoBrain:
         # --- LOGIKA KHUSUS UNTUK "APA ARTI X" ---
         words = prompt.lower().split()
         target_word = None
-
-        # Cek apakah prompt mengandung pola "apa arti [X]" atau "definisi [X]"
         if "arti" in words or "definisi" in words or "maksud" in words:
             for w in words:
                 if w not in self.stopwords and w in self.neurons:
                     target_word = w
-                    break  # Ambil kata benda pertama yang dikenal selain stopwords
+                    break
 
-        # Jika target ditemukan, cari definisinya
         if target_word:
-            # Cari di conversation_log
             for q_key, answers in self.conversation_log.items():
-                if target_word in q_key and (
-                    "arti" in q_key or "apa itu" in q_key or "definisi" in q_key
-                ):
+                if target_word in q_key and ("arti" in q_key or "apa itu" in q_key):
                     if isinstance(answers, list):
                         return random.choice(answers)
                     return answers
 
-            # Jika tidak ada di log, cek kategori neuron
-            cat = self.neurons[target_word].get("category", "hal")
-            return f"Menurut catatan saya, '{target_word}' termasuk kategori {cat}. Saya masih belajar definisi lengkapnya."
+            # Jika belum ada di QA log, coba rakit dari properti semantik
+            props = [
+                k.replace("prop:", "")
+                for k in self.neurons[target_word]["connections"].keys()
+                if k.startswith("prop:")
+            ]
+            if props:
+                return f"Menurut datasheet saya, '{target_word}' memiliki sifat: {', '.join(props[:3])}."
 
-        # --- LOGIKA NORMAL ---
+            cat = self.neurons[target_word].get("category", "hal")
+            return f"'{target_word}' termasuk dalam kategori {cat}."
+
+        # --- LOGIKA NORMAL DENGAN SEMANTIK ---
         detected_cats = [
             self.neurons[w]["category"] for w in prompt.split() if w in self.neurons
         ]
 
-        if any(
-            c in ["kondisi", "fisik", "emosi", "anggota_tubuh"] for c in detected_cats
-        ):
+        if any(c in ["kondisi_tubuh_buruk", "emosi_negatif"] for c in detected_cats):
             if subject and subject in self.neurons:
-                related = list(self.neurons[subject]["connections"].keys())[:3]
-                if related:
-                    return f"Waduh, {subject}? Itu berhubungan dengan {', '.join(related)}. Kamu butuh bantuan?"
+                props = [
+                    k.replace("prop:", "")
+                    for k in self.neurons[subject]["connections"].keys()
+                    if k.startswith("prop:")
+                ]
+                if props:
+                    return f"Waduh, {subject}? Biasanya itu terasa {', '.join(props[:2])}. Kamu butuh bantuan?"
 
-        if (
-            "kata_tanya" in detected_cats
-            or "apa" in prompt.lower()
-            or "siapa" in prompt.lower()
-        ):
+        if "kata_tanya" in detected_cats or "apa" in prompt.lower():
             if subject and subject in self.neurons:
                 cat = self.neurons[subject].get("category", "hal")
-                for q, a_list in self.conversation_log.items():
-                    if subject in q and ("apa itu" in q or "definisi" in q):
-                        answers = a_list if isinstance(a_list, list) else [a_list]
-                        desc_answers = [a for a in answers if "adalah" in a.lower()]
-                        if desc_answers:
-                            return random.choice(desc_answers)
-                return f"Menurut catatan saya, '{subject}' itu termasuk {cat}. Tapi saya masih ingin tahu lebih banyak dari kamu!"
+                props = [
+                    k.replace("prop:", "")
+                    for k in self.neurons[subject]["connections"].keys()
+                    if k.startswith("prop:")
+                ]
+
+                if props:
+                    return f"'{subject}' adalah sebuah {cat} yang bersifat {', '.join(props[:2])}."
+                else:
+                    return f"'{subject}' adalah sebuah {cat}. Saya masih belajar lebih banyak tentang itu!"
 
         if subject and subject in self.neurons:
             best_match = self.get_meaningful_connection(subject)
             if best_match:
-                responses = [
-                    f"Ya, {subject} memang berkaitan erat dengan {best_match}.",
-                    f"Menarik! Saya ingat {subject} sering disebut bersama {best_match}.",
-                    f"Betul, {subject} dan {best_match} punya hubungan yang kuat di ingatan saya.",
-                ]
-                return random.choice(responses)
+                return f"Ya, {subject} memang berkaitan erat dengan {best_match}."
             else:
                 return f"Saya tahu '{subject}', tapi saya belum banyak tahu hubungannya dengan hal lain."
 

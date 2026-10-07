@@ -7,13 +7,14 @@ def print_help():
     print(" 2. ajar: [Q] -> [A]     : Ajarkan respon spesifik.")
     print(" 3. p-bad                 : Beri penalti pada respon terakhir Piko.")
     print(" 4. l-kb -> [path.json]   : Load knowledge base masif dari JSON.")
-    print(" 5. l-txt -> [path.txt]   : Belajar dari file teks (.txt).")
-    print(" 6. l-html -> [path.html] : Belajar dari file HTML lokal.")
-    print(" 7. l-url-other -> [link] : Kunjungi website umum dan belajar isinya.")
-    print(" 8. l-url-kbbi -> [kata]  : Cari arti kata di KBBI.co.id dan ajarkan.")
-    print(" 9. l-kbbi-loop -> [file] : Loop belajar KBBI dari file daftar kata.")
-    print(" 9. reload-dasar          : Muat ulang pengetahuan dasar.")
-    print(" 10. show-help            : Tampilkan bantuan ini lagi.")
+    print(" 5. l-ds -> [path.json]  : Load datasheet semantik dari JSON.")
+    print(" 6. l-txt -> [path.txt]   : Belajar dari file teks (.txt).")
+    print(" 7. l-html -> [path.html] : Belajar dari file HTML lokal.")
+    print(" 8. l-url-other -> [link] : Kunjungi website umum dan belajar isinya.")
+    print(" 9. l-url-kbbi -> [kata]  : Cari arti kata di KBBI.co.id dan ajarkan.")
+    print(" 10. l-kbbi-loop -> [file] : Loop belajar KBBI dari file daftar kata.")
+    print(" 11. reload-dasar         : Muat ulang pengetahuan dasar.")
+    print(" 12. show-help            : Tampilkan bantuan ini lagi.")
     print("----------------------------------\n")
 
 
@@ -125,6 +126,19 @@ def main():
                     print("⚠️ Format salah. Gunakan: l-kb -> nama_file.json")
             except Exception as e:
                 print(f"❌ Gagal memuat file: {e}")
+            continue
+
+        if user_input.strip().lower().startswith("l-ds"):
+            try:
+                parts = user_input.split("->")
+                if len(parts) == 2:
+                    filepath = parts[1].strip()
+                    print(f"📂 Memuat datasheet semantik dari: {filepath}")
+                    brain.load_semantic_datasheet(filepath)
+                else:
+                    print("⚠️ Format salah. Gunakan: l-ds -> semantic_datasheet.json")
+            except Exception as e:
+                print(f"❌ Error: {e}")
             continue
 
         if user_input.strip().lower() == "reload-dasar":
