@@ -8,9 +8,12 @@ def print_help():
     print(" 3. p-bad                 : Beri penalti pada respon terakhir Piko.")
     print(" 4. l-kb -> [path.json]   : Load knowledge base masif dari JSON.")
     print(" 5. l-txt -> [path.txt]   : Belajar dari file teks (.txt).")
-    print(" 6. l-html -> [path.html] : Belajar dari file HTML (.html).")
-    print(" 7. reload-dasar          : Muat ulang pengetahuan dasar.")
-    print(" 8. show-help             : Tampilkan bantuan ini lagi.")
+    print(" 6. l-html -> [path.html] : Belajar dari file HTML lokal.")
+    print(" 7. l-url-other -> [link] : Kunjungi website umum dan belajar isinya.")
+    print(" 8. l-url-kbbi -> [kata]  : Cari arti kata di KBBI.co.id dan ajarkan.")
+    print(" 9. l-kbbi-loop -> [file] : Loop belajar KBBI dari file daftar kata.")
+    print(" 9. reload-dasar          : Muat ulang pengetahuan dasar.")
+    print(" 10. show-help            : Tampilkan bantuan ini lagi.")
     print("----------------------------------\n")
 
 
@@ -62,6 +65,54 @@ def main():
                 print(f"❌ Gagal memuat file: {e}")
             continue
         # -----------------------------
+
+        if user_input.strip().lower().startswith("l-url-other"):
+            try:
+                parts = user_input.split("->")
+                if len(parts) == 2:
+                    url = parts[1].strip()
+                    # Validasi sederhana apakah itu URL
+                    if url.startswith("http"):
+                        print(f"📂 Memproses URL: {url}")
+                        brain.learn_from_url(url)
+                    else:
+                        print(
+                            "⚠️ Format URL salah. Pastikan diawali dengan http:// atau https://"
+                        )
+                else:
+                    print("⚠️ Format salah. Gunakan: l-url -> https://contoh.com")
+            except Exception as e:
+                print(f"❌ Error: {e}")
+            continue
+
+        if user_input.strip().lower().startswith("l-kbbi-loop"):
+            try:
+                parts = user_input.split("->")
+                if len(parts) == 2:
+                    filepath = parts[1].strip()
+                    print(f"📂 Memulai proses loop KBBI dari: {filepath}")
+                    brain.learn_kbbi_from_file(filepath)
+                else:
+                    print("⚠️ Format salah. Gunakan: l-kbbi-loop -> nama_file.txt")
+            except Exception as e:
+                print(f"❌ Error: {e}")
+            continue
+
+        if user_input.strip().lower().startswith("l-url-kbbi"):
+            try:
+                parts = user_input.split("->")
+                if len(parts) == 2:
+                    word = parts[1].strip()
+                    # Validasi kata sederhana (hanya huruf)
+                    if word.isalpha():
+                        brain.learn_kbbi_word(word)
+                    else:
+                        print("⚠️ Masukkan satu kata saja tanpa spasi atau tanda baca.")
+                else:
+                    print("⚠️ Format salah. Gunakan: l-url-kbbi -> kata")
+            except Exception as e:
+                print(f"❌ Error: {e}")
+            continue
 
         if user_input.strip().lower().startswith("l-kb"):
             try:

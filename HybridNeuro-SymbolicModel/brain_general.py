@@ -2,6 +2,9 @@ import json
 import os
 import random
 import re
+import requests
+from lxml import html
+import urllib.request
 from html.parser import HTMLParser
 from collections import defaultdict
 from initial_knowledge import INITIAL_KNOWLEDGE
@@ -15,7 +18,6 @@ class TextExtractor(HTMLParser):
         self.skip = False
 
     def handle_starttag(self, tag, attrs):
-        # Abaikan script dan style
         if tag in ["script", "style"]:
             self.skip = True
 
@@ -73,6 +75,10 @@ class GeneralPikoBrain:
             "ya",
             "oh",
             "ah",
+            "apa",
+            "arti",
+            "definisi",
+            "maksud",  # Tambahkan kata tanya ke stopwords agar tidak jadi subjek
         ]
 
         if not os.path.exists(self.save_file):
@@ -174,18 +180,16 @@ class GeneralPikoBrain:
     # FILE LEARNING FEATURES (TXT & HTML)
     # ------------------------------------------------------------------
     def learn_from_txt(self, filepath):
-        """Belajar dari file teks biasa (.txt)"""
         if not os.path.exists(filepath):
             print(f"❌ File {filepath} tidak ditemukan.")
             return
-
         print(f"📖 Membaca file teks: {filepath}...")
         count_lines = 0
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
-                    if line and len(line) > 3:  # Abaikan baris kosong/terlalu pendek
+                    if line and len(line) > 3:
                         self._learn_text_internal(line)
                         count_lines += 1
             self.save_memory()
@@ -194,11 +198,9 @@ class GeneralPikoBrain:
             print(f"❌ Gagal membaca file teks: {e}")
 
     def learn_from_html(self, filepath):
-        """Belajar dari file HTML dengan membersihkan tag"""
         if not os.path.exists(filepath):
             print(f"❌ File {filepath} tidak ditemukan.")
             return
-
         print(f"🌐 Membaca file HTML: {filepath}...")
         try:
             with open(filepath, "r", encoding="utf-8") as f:
@@ -208,15 +210,12 @@ class GeneralPikoBrain:
             parser.feed(html_content)
             clean_text = parser.get_text()
 
-            # Pecah teks panjang menjadi kalimat-kalimat berdasarkan tanda baca
             sentences = re.split(r"[.!?]+", clean_text)
 
             count_sentences = 0
             for sentence in sentences:
                 s = sentence.strip()
-                if (
-                    s and len(s.split()) > 3
-                ):  # Hanya pelajari kalimat yang cukup panjang
+                if s and len(s.split()) > 3:
                     self._learn_text_internal(s)
                     count_sentences += 1
 
@@ -225,6 +224,162 @@ class GeneralPikoBrain:
 
         except Exception as e:
             print(f"❌ Gagal membaca file HTML: {e}")
+
+    def learn_from_url(self, url):
+        print(f"🌐 Mengunjungi: {url}...")
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as response:
+                raw_html = response.read().decode("utf-8", errors="ignore")
+
+            parser = TextExtractor()
+            parser.feed(raw_html)
+            clean_text = parser.get_text()
+
+            if not clean_text:
+                print("⚠️ Tidak ada teks yang bisa diambil dari halaman ini.")
+                return
+
+            sentences = re.split(r"[.!?]+", clean_text)
+
+            count_sentences = 0
+            for sentence in sentences:
+                s = sentence.strip()
+                if s and len(s.split()) > 4:
+                    self._learn_text_internal(s)
+                    count_sentences += 1
+
+            self.save_memory()
+            print(f"✅ Selesai mempelajari {count_sentences} kalimat dari website!")
+
+        except Exception as e:
+            print(f"❌ Gagal mengakses URL: {e}")
+
+    def learn_kbbi_word(self, word):
+        """Mengunjungi KBBI.co.id, mengambil arti, dan mengajarkannya"""
+        print(f"🔍 Mencari arti '{word}' di KBBI...")
+        url = f"https://kbbi.co.id/arti-kata/{word}"
+
+        try:
+            headers = {"User-Agent": "Mozilla/5.0"}
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+
+            tree = html.fromstring(response.content)
+
+            # 1. Ambil Kata
+            word_xpath = "/html/body/div/div[2]/div/div/div[1]/div[2]/h2"
+            word_elements = tree.xpath(word_xpath)
+
+            if not word_elements:
+                print("⚠️ Kata tidak ditemukan atau struktur halaman berubah.")
+                return
+
+            # Bersihkan kata dari simbol aneh (🔊, spasi, newline)
+            raw_word = word_elements[0].text_content()
+            kbbi_word = re.sub(r"[^a-zA-Z0-9\- ]", "", raw_word).strip().lower()
+
+            # 2. Ambil Paragraf Arti
+            para_xpath = "/html/body/div/div[2]/div/div/div[1]/div[2]/div[1]/p"
+            para_elements = tree.xpath(para_xpath)
+
+            if not para_elements:
+                print("⚠️ Tidak menemukan paragraf definisi.")
+                return
+
+            # 3. Bersihkan Arti
+            final_meaning = ""
+            for p in para_elements:
+                parts = []
+                if p.text:
+                    parts.append(p.text.strip())
+
+                for child in p:
+                    if child.tag not in ["i", "b"]:
+                        if child.text:
+                            parts.append(child.text.strip())
+                        if child.tail:
+                            parts.append(child.tail.strip())
+
+                meaning_line = " ".join([p for p in parts if p])
+                if meaning_line:
+                    final_meaning += meaning_line + " "
+
+            final_meaning = final_meaning.strip()
+
+            if not final_meaning:
+                final_meaning = para_elements[0].text_content().strip()
+
+            # Bersihkan definisi dari simbol aneh juga
+            final_meaning = re.sub(r"\s+", " ", final_meaning).strip()
+
+            print(f"✅ Ditemukan: '{kbbi_word}' -> '{final_meaning[:50]}...'")
+
+            # 4. Ajarkan ke Piko
+            definition_sentence = f"{kbbi_word} adalah {final_meaning}"
+
+            # Simpan sebagai QA dengan variasi pertanyaan
+            self._add_to_conversation_log(f"apa itu {kbbi_word}", final_meaning)
+            self._add_to_conversation_log(f"arti {kbbi_word}", final_meaning)
+            self._add_to_conversation_log(f"definisi {kbbi_word}", final_meaning)
+            self._add_to_conversation_log(f"{kbbi_word} artinya apa", final_meaning)
+
+            # Simpan sebagai Fakta/Graf
+            self._learn_text_internal(definition_sentence)
+
+            # Update Kategori Neuron
+            if kbbi_word not in self.neurons:
+                self.add_word(kbbi_word, "kata_umum")
+
+            self.save_memory()
+            print(f"💡 Piko telah belajar arti '{kbbi_word}'.")
+
+        except Exception as e:
+            print(f"❌ Gagal mengambil data dari KBBI: {e}")
+
+    def learn_kbbi_from_file(self, filepath):
+        if not os.path.exists(filepath):
+            print(f"❌ File {filepath} tidak ditemukan.")
+            return
+
+        print(f"📖 Membaca daftar kata dari: {filepath}...")
+
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+
+            total_words = len(lines)
+            success_count = 0
+            fail_count = 0
+
+            print(f"🔄 Memproses {total_words} kata... (Ini mungkin memakan waktu)")
+
+            for i, line in enumerate(lines):
+                word = line.strip()
+                if not word or word.startswith("#"):
+                    continue
+
+                clean_word = word.strip("-")
+
+                if clean_word:
+                    prev_log_size = len(self.conversation_log)
+                    self.learn_kbbi_word(clean_word)
+
+                    if len(self.conversation_log) > prev_log_size:
+                        success_count += 1
+                    else:
+                        fail_count += 1
+
+                    import time
+
+                    time.sleep(0.5)
+
+            print(
+                f"✅ Selesai! Berhasil mempelajari {success_count} kata, {fail_count} kata tidak ditemukan/gagal."
+            )
+
+        except Exception as e:
+            print(f"❌ Gagal memproses file: {e}")
 
     # ------------------------------------------------------------------
     # CORE LEARNING ENGINE
@@ -243,14 +398,12 @@ class GeneralPikoBrain:
 
     def _learn_text_internal(self, text):
         words = text.lower().split()
-        # 1. Asosiasi Graf
         for i in range(len(words)):
             for j in range(i + 1, min(i + 3, len(words))):
                 self.connect(words[i], words[j], strength=self.learning_rate)
-        # 2. Statistik N-gram
         for i in range(len(words) - 1):
             self.ngram_model[words[i]][words[i + 1]] += 1
-        # 3. Episodic Memory
+
         clean_text = text.strip()
         if clean_text and clean_text not in self.sentence_memory:
             self.sentence_memory.append(clean_text)
@@ -262,7 +415,6 @@ class GeneralPikoBrain:
         self.save_memory()
 
     def _normalize_key(self, text):
-        """Normalisasi teks untuk key dictionary"""
         text = text.lower().strip()
         text = re.sub(r"[.,?!\'\";:]", "", text)
         text = re.sub(r"\s+", " ", text)
@@ -485,6 +637,33 @@ class GeneralPikoBrain:
                 return random.choice(answers)
             return answers
 
+        # --- LOGIKA KHUSUS UNTUK "APA ARTI X" ---
+        words = prompt.lower().split()
+        target_word = None
+
+        # Cek apakah prompt mengandung pola "apa arti [X]" atau "definisi [X]"
+        if "arti" in words or "definisi" in words or "maksud" in words:
+            for w in words:
+                if w not in self.stopwords and w in self.neurons:
+                    target_word = w
+                    break  # Ambil kata benda pertama yang dikenal selain stopwords
+
+        # Jika target ditemukan, cari definisinya
+        if target_word:
+            # Cari di conversation_log
+            for q_key, answers in self.conversation_log.items():
+                if target_word in q_key and (
+                    "arti" in q_key or "apa itu" in q_key or "definisi" in q_key
+                ):
+                    if isinstance(answers, list):
+                        return random.choice(answers)
+                    return answers
+
+            # Jika tidak ada di log, cek kategori neuron
+            cat = self.neurons[target_word].get("category", "hal")
+            return f"Menurut catatan saya, '{target_word}' termasuk kategori {cat}. Saya masih belajar definisi lengkapnya."
+
+        # --- LOGIKA NORMAL ---
         detected_cats = [
             self.neurons[w]["category"] for w in prompt.split() if w in self.neurons
         ]
