@@ -87,6 +87,29 @@ class GeneralPikoBrain:
 
         self.load_memory()
 
+    def get_model_stats(self):
+        """Menghitung jumlah parameter/model size secara kasar"""
+        total_connections = 0
+        for word, data in self.neurons.items():
+            total_connections += len(data["connections"])
+
+        total_ngrams = sum(len(v) for v in self.ngram_model.values())
+        total_qa = len(self.conversation_log)
+        total_sentences = len(self.sentence_memory)
+        total_vocab = len(self.neurons)
+
+        # Estimasi parameter: Koneksi Graf + Entri N-gram
+        estimated_params = total_connections + total_ngrams
+
+        return {
+            "vocab_size": total_vocab,
+            "total_connections": total_connections,
+            "total_ngrams": total_ngrams,
+            "estimated_parameters": estimated_params,
+            "qa_entries": total_qa,
+            "sentence_memory": total_sentences,
+        }
+
     # ------------------------------------------------------------------
     # MEMORY MANAGEMENT
     # ------------------------------------------------------------------
@@ -105,24 +128,6 @@ class GeneralPikoBrain:
             for related_word in info.get("related", []):
                 self.connect(word, related_word, strength=1.5)
         print("✅ Pengetahuan dasar berhasil dimuat ulang.")
-
-    def load_memory(self):
-        if os.path.exists(self.save_file):
-            try:
-                with open(self.save_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    self.neurons = data.get("neurons", {})
-                    self.conversation_log = data.get("conversation_log", {})
-                    self.sentence_memory = data.get("sentence_memory", [])
-
-                    raw_ngram = data.get("ngram_model", {})
-                    for k, v in raw_ngram.items():
-                        self.ngram_model[k] = defaultdict(int, v)
-                print(f"🧠 Memori dimuat dari {self.save_file}")
-            except Exception as e:
-                print(f"⚠️ Error memuat memori: {e}")
-        else:
-            print("🆕 Memori baru dibuat.")
 
     def load_semantic_datasheet(self, filepath):
         """Memuat datasheet semantik untuk memperkaya definisi dan properti kata"""
@@ -166,6 +171,24 @@ class GeneralPikoBrain:
 
         except Exception as e:
             print(f"❌ Gagal memproses datasheet: {e}")
+
+    def load_memory(self):
+        if os.path.exists(self.save_file):
+            try:
+                with open(self.save_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self.neurons = data.get("neurons", {})
+                    self.conversation_log = data.get("conversation_log", {})
+                    self.sentence_memory = data.get("sentence_memory", [])
+
+                    raw_ngram = data.get("ngram_model", {})
+                    for k, v in raw_ngram.items():
+                        self.ngram_model[k] = defaultdict(int, v)
+                print(f"🧠 Memori dimuat dari {self.save_file}")
+            except Exception as e:
+                print(f"⚠️ Error memuat memori: {e}")
+        else:
+            print("🆕 Memori baru dibuat.")
 
     def save_memory(self):
         data = {
@@ -567,28 +590,46 @@ class GeneralPikoBrain:
 
         ignore_as_subject = [
             "ceritakan",
+            "ceritakanlah",
             "cerita",
             "jelaskan",
+            "jelaskanlah",
             "apa",
+            "apakah",
             "siapa",
+            "siapakah",
             "bagaimana",
+            "bagaimanakah",
+            "berikan",
+            "berikanlah",
+            "mengapa",
             "kenapa",
             "dimana",
+            "dimanakah",
             "kapan",
+            "kapankah",
             "tentang",
             "mengenai",
             "soal",
             "tolong",
             "mohon",
             "bisa",
+            "bisakah",
+            "dapatkah",
             "boleh",
+            "bolehkah",
             "harus",
+            "haruskah",
             "mau",
+            "maukah",
             "ingin",
+            "inginkah",
             "akan",
+            "akankah",
             "sedang",
             "telah",
             "sudah",
+            "sudahkah",
             "belum",
         ] + self.stopwords
 
@@ -628,9 +669,16 @@ class GeneralPikoBrain:
         creative_triggers = [
             "buat kalimat",
             "buatkan kalimat",
+            "buatkan",
+            "buatlah",
             "cerita",
+            "ceritakan",
+            "ceritakanlah",
+            "jelaskan",
+            "jelaskanlah",
             "karang",
             "susun kata",
+            "susunkan kata",
         ]
         if any(trigger in prompt.lower() for trigger in creative_triggers):
             story = self.generate_novel_sentence(subject)
@@ -706,41 +754,54 @@ class GeneralPikoBrain:
                 return f"Menurut datasheet saya, '{target_word}' memiliki sifat: {', '.join(props[:3])}."
 
             cat = self.neurons[target_word].get("category", "hal")
-            return f"'{target_word}' termasuk dalam kategori {cat}."
+            return f"Menurut catatan saya, '{target_word}' termasuk kategori {cat}. Saya masih belajar definisi lengkapnya."
 
         # --- LOGIKA NORMAL DENGAN SEMANTIK ---
         detected_cats = [
             self.neurons[w]["category"] for w in prompt.split() if w in self.neurons
         ]
 
-        if any(c in ["kondisi_tubuh_buruk", "emosi_negatif"] for c in detected_cats):
+        if any(
+            c
+            in [
+                "kondisi_tubuh_buruk",
+                "emosi_negatif",
+                "kondisi",
+                "fisik",
+                "emosi",
+                "anggota_tubuh",
+            ]
+            for c in detected_cats
+        ):
             if subject and subject in self.neurons:
-                props = [
-                    k.replace("prop:", "")
-                    for k in self.neurons[subject]["connections"].keys()
-                    if k.startswith("prop:")
-                ]
-                if props:
-                    return f"Waduh, {subject}? Biasanya itu terasa {', '.join(props[:2])}. Kamu butuh bantuan?"
+                related = list(self.neurons[subject]["connections"].keys())[:3]
+                if related:
+                    return f"Waduh, {subject}? Itu berhubungan dengan {', '.join(related)}. Kamu butuh bantuan?"
 
-        if "kata_tanya" in detected_cats or "apa" in prompt.lower():
+        if (
+            "kata_tanya" in detected_cats
+            or "apa" in prompt.lower()
+            or "siapa" in prompt.lower()
+        ):
             if subject and subject in self.neurons:
                 cat = self.neurons[subject].get("category", "hal")
-                props = [
-                    k.replace("prop:", "")
-                    for k in self.neurons[subject]["connections"].keys()
-                    if k.startswith("prop:")
-                ]
-
-                if props:
-                    return f"'{subject}' adalah sebuah {cat} yang bersifat {', '.join(props[:2])}."
-                else:
-                    return f"'{subject}' adalah sebuah {cat}. Saya masih belajar lebih banyak tentang itu!"
+                for q, a_list in self.conversation_log.items():
+                    if subject in q and ("apa itu" in q or "definisi" in q):
+                        answers = a_list if isinstance(a_list, list) else [a_list]
+                        desc_answers = [a for a in answers if "adalah" in a.lower()]
+                        if desc_answers:
+                            return random.choice(desc_answers)
+                return f"Menurut catatan saya, '{subject}' itu termasuk {cat}. Tapi saya masih ingin tahu lebih banyak dari kamu!"
 
         if subject and subject in self.neurons:
             best_match = self.get_meaningful_connection(subject)
             if best_match:
-                return f"Ya, {subject} memang berkaitan erat dengan {best_match}."
+                responses = [
+                    f"Ya, {subject} memang berkaitan erat dengan {best_match}.",
+                    f"Menarik! Saya ingat {subject} sering disebut bersama {best_match}.",
+                    f"Betul, {subject} dan {best_match} punya hubungan yang kuat di ingatan saya.",
+                ]
+                return random.choice(responses)
             else:
                 return f"Saya tahu '{subject}', tapi saya belum banyak tahu hubungannya dengan hal lain."
 

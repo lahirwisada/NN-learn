@@ -14,7 +14,8 @@ def print_help():
     print(" 9. l-url-kbbi -> [kata]  : Cari arti kata di KBBI.co.id dan ajarkan.")
     print(" 10. l-kbbi-loop -> [file] : Loop belajar KBBI dari file daftar kata.")
     print(" 11. reload-dasar         : Muat ulang pengetahuan dasar.")
-    print(" 12. show-help            : Tampilkan bantuan ini lagi.")
+    print(" 12. v-param-count        : Lihat jumlah parameter/model size.")
+    print(" 13. show-help            : Tampilkan bantuan ini lagi.")
     print("----------------------------------\n")
 
 
@@ -37,7 +38,19 @@ def main():
             print_help()
             continue
 
-        # --- FITUR BARU: LOAD TXT ---
+        if user_input.strip().lower() == "v-param-count":
+            stats = brain.get_model_stats()
+            print("\n--- 📊 STATISTIK MODEL PIKO ---")
+            print(f" 🧠 Vocabulary Size   : {stats['vocab_size']} kata")
+            print(f" 🔗 Total Connections : {stats['total_connections']}")
+            print(f" 📈 Total N-Grams     : {stats['total_ngrams']}")
+            print(f" ⚙️ Estimated Params  : {stats['estimated_parameters']}")
+            print(f" 💬 QA Entries        : {stats['qa_entries']}")
+            print(f" 📝 Sentence Memory   : {stats['sentence_memory']}")
+            print("----------------------------------\n")
+            continue
+
+        # --- LOAD TXT ---
         if user_input.strip().lower().startswith("l-txt"):
             try:
                 parts = user_input.split("->")
@@ -52,7 +65,7 @@ def main():
             continue
         # ----------------------------
 
-        # --- FITUR BARU: LOAD HTML ---
+        # --- LOAD HTML ---
         if user_input.strip().lower().startswith("l-html"):
             try:
                 parts = user_input.split("->")
